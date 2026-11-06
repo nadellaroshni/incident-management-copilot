@@ -7,14 +7,27 @@ An AI-powered copilot that helps engineers investigate production incidents. It 
 ## Repository layout
 
 ```
+copilot/               Retrieval, validator, investigation agents, CLI and evaluation
+knowledge/runbooks/    Runbooks the copilot cites (one file per failure mode)
 sample-app/            Checkout service with injectable faults, plus a labeled incident generator
+tests/                 Unit tests (python3 -m unittest)
 scripts/               Setup scripts (AWS budget alerts)
-docs/ROADMAP.md        Phased plan, cost guardrails and evaluation targets
+docs/                  ARCHITECTURE.md, SETUP.md (step-by-step), ROADMAP.md, results/
 ```
 
-## Quick start (local)
+## Quick start
 
-Requires Python 3.9 or later. No third-party packages are needed for Phase 1.
+Full instructions are in [docs/SETUP.md](docs/SETUP.md). The short version:
+
+```bash
+python3 -m unittest -v                                  # run the tests
+python3 -m copilot investigate --incident INC-001       # investigate and approve (offline)
+python3 -m copilot.evaluate                             # score the offline baseline
+```
+
+## Run the sample service
+
+Requires Python 3.9 or later. No third-party packages are needed.
 
 ```bash
 # Run the sample service

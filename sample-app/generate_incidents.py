@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT_CAUSES = {
     "db_pool_exhaustion": {
+        "runbook": "rb-db-pool",
         "alert": "checkout error rate > 5% for 5m (HTTP 503)",
         "logs": [
             "connection pool timeout after 0.5s; active=5/5",
@@ -25,6 +26,7 @@ ROOT_CAUSES = {
         "summary": "Database connection pool exhausted; connections are not being returned.",
     },
     "disk_full": {
+        "runbook": "rb-disk-full",
         "alert": "checkout error rate > 5% for 5m (HTTP 500)",
         "logs": [
             "OSError: [Errno 28] No space left on device while writing order record",
@@ -33,6 +35,7 @@ ROOT_CAUSES = {
         "summary": "Host disk is full, so order records cannot be written.",
     },
     "bad_deploy": {
+        "runbook": "rb-bad-deploy",
         "alert": "checkout error rate 100% since last deploy (HTTP 500)",
         "logs": [
             "missing configuration key PAYMENT_GATEWAY_URL; checkout cannot start",
@@ -78,6 +81,7 @@ def make_incident(index, rng):
         "logs": lines,
         "ground_truth_root_cause": cause,
         "ground_truth_summary": spec["summary"],
+        "ground_truth_runbook": spec["runbook"],
     }
 
 

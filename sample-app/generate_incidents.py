@@ -53,10 +53,68 @@ NOISE = [
     "cache hit for product catalog",
 ]
 
+# Paraphrased variant: the same failures described in different words, and noisier
+# logs with unrelated warnings that mention similar components. Runbooks are NOT
+# changed, so this measures whether retrieval still works on wording it hasn't seen.
+PARAPHRASED = {
+    "db_pool_exhaustion": [
+        "waited 500 ms for a free database session; all 5 sessions are in use",
+        "request gave up waiting for a database handle after half a second, none free",
+    ],
+    "disk_full": [
+        "could not persist order: volume has no free blocks left",
+        "write failed, storage device reports zero bytes available for order data",
+    ],
+    "bad_deploy": [
+        "startup aborted: PAYMENT_GATEWAY_URL is not set in this environment",
+        "service refused to boot, required setting for the payment gateway endpoint is absent",
+    ],
+}
 
-def make_incident(index, rng):
+NOISE_PARAPHRASED = [
+    "order accepted",
+    "upstream probe responded in 12 ms",
+    "catalog cache refreshed",
+    "slow query on inventory table: 340 ms",
+    "database replica lag 0.2s, within threshold",
+    "TLS handshake with metrics agent completed",
+    "retrying metrics export after timeout",
+]
+
+
+# Vocabulary-shifted variant: same failures, described without the runbook's own
+# keywords (as a different team might write them). This is the hardest set here.
+SHIFTED = {
+    "db_pool_exhaustion": [
+        "could not lease a session from the datastore; 5 of 5 handles in flight",
+        "checkout stalled waiting on a backend slot, every slot is held",
+    ],
+    "disk_full": [
+        "order journal flush failed: volume out of capacity, cannot allocate blocks",
+        "ENOSPC while flushing order journal to volume",
+    ],
+    "bad_deploy": [
+        "boot halted: environment lacks a required endpoint parameter for payments",
+        "config validation failed at startup, the payments endpoint value was never provided",
+    ],
+}
+
+
+def make_incident(index, rng, variant="standard"):
     cause = rng.choice(list(ROOT_CAUSES))
     spec = ROOT_CAUSES[cause]
+    alert = spec["alert"]
+    if variant == "shifted":
+        # Generic alert: the real alerts name the cause ("since last deploy"), which leaks the answer.
+        error_msgs = SHIFTED[cause]
+        noise = NOISE_PARAPHRASED
+        alert = "checkout error rate above threshold"
+    elif variant == "paraphrased":
+        error_msgs = PARAPHRASED[cause]
+        noise = NOISE_PARAPHRASED
+    else:
+        error_msgs = spec["logs"]
+        noise = NOISE
     minutes = rng.randint(0, 59)
     lines = []
     for _ in range(rng.randint(8, 15)):
@@ -64,9 +122,9 @@ def make_incident(index, rng):
             "ts": f"2026-10-13T10:{minutes:02d}:{rng.randint(0, 59):02d}Z",
             "level": "INFO",
             "service": "checkout",
-            "msg": rng.choice(NOISE),
+            "msg": rng.choice(noise),
         })
-    for msg in spec["logs"] * rng.randint(2, 4):
+    for msg in error_msgs * rng.randint(2, 4):
         lines.append({
             "ts": f"2026-10-13T10:{minutes:02d}:{rng.randint(0, 59):02d}Z",
             "level": "ERROR",
@@ -77,7 +135,7 @@ def make_incident(index, rng):
     rng.shuffle(lines)
     return {
         "incident_id": f"INC-{index:03d}",
-        "alert": spec["alert"],
+        "alert": alert,
         "logs": lines,
         "ground_truth_root_cause": cause,
         "ground_truth_summary": spec["summary"],
@@ -89,16 +147,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--count", type=int, default=40)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--out", default=str(Path(__file__).parent / "data" / "incidents.jsonl"))
+    parser.add_argument("--variant", choices=["standard", "paraphrased", "shifted"], default="standard")
+    parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
+    names = {"standard": "incidents.jsonl", "paraphrased": "incidents_paraphrased.jsonl",
+             "shifted": "incidents_shifted.jsonl"}
+    default_name = names[args.variant]
+    out = Path(args.out) if args.out else Path(__file__).parent / "data" / default_name
     rng = random.Random(args.seed)
-    out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w") as f:
         for i in range(1, args.count + 1):
-            f.write(json.dumps(make_incident(i, rng)) + "\n")
-    print(f"wrote {args.count} incidents to {out}")
+            f.write(json.dumps(make_incident(i, rng, args.variant)) + "\n")
+    print(f"wrote {args.count} {args.variant} incidents to {out}")
 
 
 if __name__ == "__main__":

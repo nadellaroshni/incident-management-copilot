@@ -137,7 +137,19 @@ python3 -m copilot.evaluate
 
 This prints a summary and writes a report to `docs/results/offline-<date>.md`.
 
-**Read the result with care.** The offline baseline scores 100% on the synthetic set. That is expected, because the synthetic logs use the same error messages as the runbooks, so keyword matching finds the answer. It proves the pipeline works end to end. It does not show that the copilot handles real incidents. Phase 8 in `docs/ARCHITECTURE.md` adds paraphrased and held-out incidents before any accuracy claim should be made.
+**Read the result with care.** The offline baseline scores 100% on every synthetic set. There are three sets, and all three score 100%:
+
+| Set | File | How it differs |
+|---|---|---|
+| Standard | `sample-app/data/incidents.jsonl` | Log messages copied from the runbook wording |
+| Paraphrased | `sample-app/data/incidents_paraphrased.jsonl` | Same failures in different words, with noisier logs |
+| Shifted | `sample-app/data/incidents_shifted.jsonl` | Vocabulary avoids the runbook's keywords, and the alert is generic |
+
+Regenerate the harder sets with `python3 sample-app/generate_incidents.py --variant paraphrased --seed 99` and `--variant shifted --seed 123`, then score them with `python3 -m copilot.evaluate --incidents sample-app/data/<file>.jsonl --no-report`.
+
+**Why the synthetic sets are not enough.** Even the shifted set scores 100%. The runbooks and the generated text share too much everyday vocabulary, such as "order", "volume", "environment" and "checkout", so keyword retrieval finds the right runbook regardless of how the failure is worded. The sets were written by the same person who wrote the runbooks, so they cannot show how the copilot does on real incidents. Treat every number on these sets as a pipeline check, not an accuracy result.
+
+**What would give a real number.** Incident descriptions written by someone other than the runbook author, ideally taken from real postmortems or incident reports with the identifying details removed, scored against the root cause a human engineer confirmed. Until that exists, do not quote an accuracy figure for the copilot.
 
 Status: **verified** (tests pass, CLI and evaluation run locally).
 

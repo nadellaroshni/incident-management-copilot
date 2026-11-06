@@ -1,0 +1,2 @@
+# Only needed for the LLM backend (--backend llm). The offline path is standard library only.
+boto3>=1.34
